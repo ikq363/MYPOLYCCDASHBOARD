@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
     <title>Tugasan - MYPOLY</title>
 
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client"></script>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
-        import { getAuth, signOut, onAuthStateChanged, getIdToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, collection, addDoc, getDocs, query, where, deleteDoc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ===== FIREBASE CONFIG =====
@@ -31,6 +34,8 @@
 
         // ===== GOOGLE DRIVE CONFIG =====
         const DRIVE_FOLDER_ID = "1uzal8VixCbbkivwmAUmreYS0isfLWDt8";
+        const CLIENT_ID = "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";
+        const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
         // ===== DOM ELEMENTS =====
         const userName = document.getElementById('userName');
@@ -61,55 +66,93 @@
         let tasks = [];
         let currentFilter = 'all';
         let editingTaskId = null;
+        let accessToken = null;
 
         // ===== ALLOWED USER =====
         const ALLOWED_EMAIL = "ikqram363@gmail.com";
 
-        // ===== AUTH CHECK =====
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = 'index.html';
-                return;
-            }
-            if (user.email !== ALLOWED_EMAIL) {
-                alert('Akses ditolak.');
-                await signOut(auth);
-                window.location.href = 'index.html';
-                return;
-            }
-            currentUser = user;
-            userName.textContent = user.displayName || 'Pengguna';
-            await loadTasks();
-            renderTasks();
-        });
+        // ===== OAUTH2 CLIENT =====
+        let tokenClient = null;
 
-        // ===== LOGOUT =====
-        logoutBtn.addEventListener('click', async () => {
-            await signOut(auth);
-            window.location.href = 'index.html';
-        });
-
-        // ===== LOAD TASKS =====
-        async function loadTasks() {
-            if (!currentUser) return;
-            try {
-                const q = query(
-                    collection(db, "tasks"),
-                    where("userId", "==", currentUser.uid),
-                    orderBy("createdAt", "desc")
-                );
-                const snap = await getDocs(q);
-                tasks = [];
-                snap.forEach(doc => {
-                    tasks.push({ id: doc.id, ...doc.data() });
-                });
-            } catch (error) {
-                console.error('Error loading tasks:', error);
-                showNotification('❌ Gagal muat tugasan', 'error');
-            }
+        function initOAuth() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse.access_token) {
+                        accessToken = tokenResponse.access_token;
+                        console.log('✅ OAuth2 Token obtained');
+                        // Resume upload jika ada file pending
+                        if (window.pendingFile) {
+                            performUpload(window.pendingFile);
+                        }
+                    } else {
+                        console.error('❌ Failed to get token');
+                        showNotification('❌ Gagal dapatkan akses Google Drive', 'error');
+                    }
+                },
+            });
         }
 
-        // ===== UPLOAD FILE TO GOOGLE DRIVE (GUNA FIREBASE AUTH TOKEN) =====
+        // ===== GET OAUTH TOKEN =====
+        function requestOAuthToken() {
+            return new Promise((resolve, reject) => {
+                if (accessToken) {
+                    resolve(accessToken);
+                    return;
+                }
+
+                try {
+                    tokenClient.requestAccessToken();
+                    // Token akan dihandle oleh callback
+                    // Simpan resolve untuk digunakan dalam callback
+                    window._oauthResolve = resolve;
+                    window._oauthReject = reject;
+                    
+                    // Set timeout untuk keselamatan
+                    setTimeout(() => {
+                        if (!accessToken) {
+                            reject(new Error('Timeout mendapatkan token OAuth'));
+                        }
+                    }, 30000);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // Override callback untuk handle token
+        const originalCallback = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: (tokenResponse) => {
+                if (tokenResponse.access_token) {
+                    accessToken = tokenResponse.access_token;
+                    console.log('✅ OAuth2 Token obtained');
+                    if (window._oauthResolve) {
+                        window._oauthResolve(accessToken);
+                        window._oauthResolve = null;
+                        window._oauthReject = null;
+                    }
+                    if (window.pendingFile) {
+                        performUpload(window.pendingFile);
+                    }
+                } else {
+                    console.error('❌ Failed to get token');
+                    if (window._oauthReject) {
+                        window._oauthReject(new Error('Failed to get token'));
+                        window._oauthResolve = null;
+                        window._oauthReject = null;
+                    }
+                    showNotification('❌ Gagal dapatkan akses Google Drive', 'error');
+                }
+            },
+        });
+
+        // Replace with our version
+        window.tokenClient = tokenClient;
+
+        // ===== UPLOAD FILE TO GOOGLE DRIVE (GUNA OAUTH2) =====
         async function uploadToDrive(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -117,8 +160,20 @@
                     try {
                         const base64Data = e.target.result.split(',')[1];
 
-                        // Dapatkan token daripada Firebase Auth
-                        const token = await getIdToken(auth.currentUser);
+                        // Dapatkan token OAuth2
+                        let token;
+                        try {
+                            token = await requestOAuthToken();
+                        } catch (error) {
+                            // Jika token belum ada, minta user authorize
+                            showNotification('🔐 Sila authorize akses Google Drive', 'info');
+                            tokenClient.requestAccessToken();
+                            // Simpan file untuk upload selepas authorize
+                            window.pendingFile = file;
+                            window._pendingResolve = resolve;
+                            window._pendingReject = reject;
+                            return;
+                        }
 
                         // Metadata untuk fail
                         const metadata = {
@@ -127,7 +182,7 @@
                             mimeType: file.type || 'application/octet-stream'
                         };
 
-                        // Upload ke Google Drive menggunakan Firebase Auth Token
+                        // Upload ke Google Drive
                         const formData = new FormData();
                         formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
                         formData.append('file', file);
@@ -160,6 +215,54 @@
                 };
                 reader.readAsDataURL(file);
             });
+        }
+
+        // ===== AUTH CHECK =====
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            if (user.email !== ALLOWED_EMAIL) {
+                alert('Akses ditolak.');
+                await signOut(auth);
+                window.location.href = 'index.html';
+                return;
+            }
+            currentUser = user;
+            userName.textContent = user.displayName || 'Pengguna';
+            
+            // Init OAuth
+            initOAuth();
+            
+            await loadTasks();
+            renderTasks();
+        });
+
+        // ===== LOGOUT =====
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.href = 'index.html';
+        });
+
+        // ===== LOAD TASKS =====
+        async function loadTasks() {
+            if (!currentUser) return;
+            try {
+                const q = query(
+                    collection(db, "tasks"),
+                    where("userId", "==", currentUser.uid),
+                    orderBy("createdAt", "desc")
+                );
+                const snap = await getDocs(q);
+                tasks = [];
+                snap.forEach(doc => {
+                    tasks.push({ id: doc.id, ...doc.data() });
+                });
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                showNotification('❌ Gagal muat tugasan', 'error');
+            }
         }
 
         // ===== RENDER TASKS =====
@@ -517,9 +620,11 @@
 
         console.log('✅ Tugasan page loaded successfully!');
         console.log('📁 Google Drive Folder ID:', DRIVE_FOLDER_ID);
+        console.log('🔑 Google Client ID:', CLIENT_ID);
 
         // ===== EXPOSE FUNCTIONS =====
         window.uploadToDrive = uploadToDrive;
+        window.requestOAuthToken = requestOAuthToken;
 
     </script>
 
