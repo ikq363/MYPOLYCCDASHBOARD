@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>MYPOLY Dashboard - Login</title>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+        import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcTdgGAEPnUEP87N_BuLBxBmSzo1NOVHY",
+            authDomain: "mypoly-dashboard.firebaseapp.com",
+            projectId: "mypoly-dashboard",
+            storageBucket: "mypoly-dashboard.firebasestorage.app",
+            messagingSenderId: "829710608275",
+            appId: "1:829710608275:web:f2c68b3c6b181cfc256a66",
+            measurementId: "G-HTZXCGB1ZB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const googleBtn = document.getElementById('googleBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => { errorMessage.style.display = 'none'; }, 5000);
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loadingSpinner.style.display = 'inline-block';
+                loginBtn.disabled = true;
+                loginBtn.textContent = 'Logging in...';
+            } else {
+                loadingSpinner.style.display = 'none';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        }
+
+        async function loginWithEmail(email, password) {
+            if (!email || !password) {
+                showError('Sila isi email dan password.');
+                return;
+            }
+            setLoading(true);
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                let errorMsg = 'Login gagal. Sila cuba lagi.';
+                if (error.code === 'auth/user-not-found') errorMsg = 'Email tidak berdaftar.';
+                else if (error.code === 'auth/wrong-password') errorMsg = 'Password salah.';
+                else if (error.code === 'auth/invalid-email') errorMsg = 'Format email tidak sah.';
+                else if (error.code === 'auth/too-many-requests') errorMsg = 'Terlalu banyak percubaan.';
+                showError(errorMsg);
+                setLoading(false);
+            }
+        }
+
+        async function loginWithGoogle() {
+            try {
+                await signInWithPopup(auth, provider);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                let errorMsg = 'Google login gagal.';
+                if (error.code === 'auth/popup-closed-by-user') errorMsg = 'Popup ditutup.';
+                showError(errorMsg);
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) window.location.href = 'dashboard.html';
+        });
+
+        loginBtn.addEventListener('click', () => {
+            loginWithEmail(emailInput.value.trim(), passwordInput.value.trim());
+        });
+
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loginBtn.click();
+        });
+
+        googleBtn.addEventListener('click', loginWithGoogle);
+    </script>
+
+    <style>
+        /* ===== RESET ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        /* ===== LOGIN CONTAINER ===== */
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== LOGO / HEADER ===== */
+        .login-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .login-header .logo-icon {
+            width: 72px;
+            height: 72px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 14px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-header .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 12px;
+        }
+
+        .login-header h1 {
+            color: #ffffff;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .login-header h1 span {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-header p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* ===== ERROR MESSAGE ===== */
+        .error-message {
+            display: none;
+            background: rgba(255, 82, 82, 0.12);
+            border: 1px solid rgba(255, 82, 82, 0.25);
+            color: #ff6b6b;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            text-align: center;
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-6px);
+            }
+            75% {
+                transform: translateX(6px);
+            }
+        }
+
+        /* ===== FORM ===== */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            letter-spacing: 0.3px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 13px 16px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .form-group input:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.35);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-google {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .btn-google:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .btn-google:active {
+            transform: translateY(0);
+        }
+
+        .btn-google svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        /* ===== DIVIDER ===== */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            gap: 16px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .divider span {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        /* ===== SPINNER ===== */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== FOOTER ===== */
+        .login-footer {
+            text-align: center;
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 11px;
+            letter-spacing: 0.3px;
+        }
+
+        .login-footer a {
+            color: rgba(255, 255, 255, 0.3);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .login-footer a:hover {
+            color: #667eea;
+        }
+
+        /* ========================================
+                   RESPONSIVE - SEMUA DEVICE
+                ======================================== */
+
+        /* === PHONE (≤ 480px) === */
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+
+            .login-container {
+                padding: 20px 16px;
+                border-radius: 20px;
+            }
+
+            .login-header .logo-icon {
+                width: 56px;
+                height: 56px;
+            }
+
+            .login-header .logo-icon img {
+                padding: 10px;
+            }
+
+            .login-header h1 {
+                font-size: 22px;
+            }
+
+            .login-header p {
+                font-size: 13px;
+            }
+
+            .form-group input {
+                padding: 11px 14px;
+                font-size: 14px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .btn-google svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        /* === PHONE KECIL (≤ 360px) === */
+        @media (max-width: 360px) {
+            body {
+                padding: 8px;
+            }
+
+            .login-container {
+                padding: 16px 12px;
+                border-radius: 16px;
+            }
+
+            .login-header .logo-icon {
+                width: 48px;
+                height: 48px;
+            }
+
+            .login-header .logo-icon img {
+                padding: 8px;
+            }
+
+            .login-header h1 {
+                font-size: 20px;
+            }
+
+            .login-header p {
+                font-size: 12px;
+            }
+
+            .login-header {
+                margin-bottom: 16px;
+            }
+
+            .form-group {
+                margin-bottom: 12px;
+            }
+
+            .form-group input {
+                padding: 9px 12px;
+                font-size: 13px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 10px;
+                font-size: 13px;
+            }
+
+            .divider {
+                margin: 14px 0;
+            }
+
+            .divider span {
+                font-size: 10px;
+            }
+
+            .login-footer {
+                font-size: 10px;
+                margin-top: 14px;
+            }
+        }
+
+        /* === TABLET (481px - 1024px) === */
+        @media (min-width: 481px) and (max-width: 1024px) {
+            .login-container {
+                max-width: 400px;
+                padding: 32px 28px;
+            }
+
+            .login-header .logo-icon {
+                width: 68px;
+                height: 68px;
+            }
+
+            .login-header h1 {
+                font-size: 26px;
+            }
+
+            .form-group input {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 13px;
+                font-size: 15px;
+            }
+        }
+
+        /* === TABLET LANDSCAPE (768px - 1024px) === */
+        @media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+            .login-container {
+                max-width: 380px;
+                padding: 28px 24px;
+            }
+
+            .login-header .logo-icon {
+                width: 60px;
+                height: 60px;
+            }
+
+            .login-header h1 {
+                font-size: 24px;
+            }
+
+            .form-group input {
+                padding: 11px 14px;
+                font-size: 14px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 11px;
+                font-size: 14px;
+            }
+        }
+
+        /* === DESKTOP (≥ 1025px) === */
+        @media (min-width: 1025px) {
+            .login-container {
+                max-width: 420px;
+                padding: 44px 38px;
+            }
+
+            .login-header .logo-icon {
+                width: 80px;
+                height: 80px;
+            }
+
+            .login-header h1 {
+                font-size: 28px;
+            }
+
+            .form-group input {
+                padding: 14px 18px;
+                font-size: 15px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 14px;
+                font-size: 16px;
+            }
+        }
+
+        /* === LANDSCAPE PHONE (tinggi ≤ 500px) === */
+        @media (max-height: 500px) and (orientation: landscape) {
+            body {
+                padding: 8px;
+                align-items: flex-start;
+                padding-top: 12px;
+            }
+
+            .login-container {
+                padding: 14px 18px;
+                max-width: 380px;
+                border-radius: 16px;
+            }
+
+            .login-header {
+                margin-bottom: 12px;
+            }
+
+            .login-header .logo-icon {
+                width: 40px;
+                height: 40px;
+                margin-bottom: 6px;
+            }
+
+            .login-header .logo-icon img {
+                padding: 6px;
+            }
+
+            .login-header h1 {
+                font-size: 18px;
+            }
+
+            .login-header p {
+                font-size: 11px;
+            }
+
+            .form-group {
+                margin-bottom: 8px;
+            }
+
+            .form-group label {
+                font-size: 11px;
+                margin-bottom: 2px;
+            }
+
+            .form-group input {
+                padding: 7px 10px;
+                font-size: 12px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 8px;
+                font-size: 12px;
+                border-radius: 8px;
+            }
+
+            .btn-google svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .divider {
+                margin: 8px 0;
+            }
+
+            .divider span {
+                font-size: 9px;
+            }
+
+            .login-footer {
+                margin-top: 8px;
+                font-size: 9px;
+            }
+
+            .error-message {
+                padding: 6px 10px;
+                font-size: 11px;
+                margin-bottom: 8px;
+            }
+        }
+
+        /* === LANDSCAPE TABLET (tinggi ≤ 600px) === */
+        @media (max-height: 600px) and (min-width: 481px) and (orientation: landscape) {
+            body {
+                padding: 12px;
+                align-items: flex-start;
+                padding-top: 16px;
+            }
+
+            .login-container {
+                padding: 18px 22px;
+                max-width: 380px;
+                border-radius: 18px;
+            }
+
+            .login-header {
+                margin-bottom: 14px;
+            }
+
+            .login-header .logo-icon {
+                width: 48px;
+                height: 48px;
+            }
+
+            .login-header .logo-icon img {
+                padding: 8px;
+            }
+
+            .login-header h1 {
+                font-size: 20px;
+            }
+
+            .login-header p {
+                font-size: 12px;
+            }
+
+            .form-group {
+                margin-bottom: 10px;
+            }
+
+            .form-group input {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 9px;
+                font-size: 13px;
+            }
+
+            .divider {
+                margin: 10px 0;
+            }
+
+            .login-footer {
+                margin-top: 10px;
+            }
+        }
+
+        /* === FOLDABLE / DUAL SCREEN (≤ 280px) === */
+        @media (max-width: 280px) {
+            body {
+                padding: 4px;
+            }
+
+            .login-container {
+                padding: 12px 8px;
+                border-radius: 12px;
+            }
+
+            .login-header .logo-icon {
+                width: 36px;
+                height: 36px;
+            }
+
+            .login-header .logo-icon img {
+                padding: 4px;
+            }
+
+            .login-header h1 {
+                font-size: 16px;
+            }
+
+            .login-header p {
+                font-size: 10px;
+            }
+
+            .form-group input {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 6px;
+                font-size: 11px;
+            }
+
+            .btn-google svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .divider span {
+                font-size: 8px;
+            }
+
+            .login-footer {
+                font-size: 8px;
+            }
+        }
+
+        /* === DARK MODE SUPPORT === */
+        @media (prefers-color-scheme: light) {
+            body {
+                background: linear-gradient(135deg, #e8e8f0, #d0d0e0, #b8b8d0);
+            }
+
+            .login-container {
+                background: rgba(255, 255, 255, 0.7);
+                border-color: rgba(255, 255, 255, 0.3);
+            }
+
+            .login-header h1 {
+                color: #1a1a2e;
+            }
+
+            .login-header h1 span {
+                -webkit-text-fill-color: #667eea;
+            }
+
+            .login-header p {
+                color: rgba(0, 0, 0, 0.5);
+            }
+
+            .form-group label {
+                color: rgba(0, 0, 0, 0.6);
+            }
+
+            .form-group input {
+                background: rgba(255, 255, 255, 0.5);
+                border-color: rgba(0, 0, 0, 0.1);
+                color: #1a1a2e;
+            }
+
+            .form-group input::placeholder {
+                color: rgba(0, 0, 0, 0.3);
+            }
+
+            .form-group input:focus {
+                border-color: #667eea;
+                background: rgba(255, 255, 255, 0.7);
+            }
+
+            .btn-google {
+                background: rgba(255, 255, 255, 0.4);
+                border-color: rgba(0, 0, 0, 0.1);
+                color: #1a1a2e;
+            }
+
+            .btn-google:hover {
+                background: rgba(255, 255, 255, 0.6);
+            }
+
+            .divider::before,
+            .divider::after {
+                background: rgba(0, 0, 0, 0.1);
+            }
+
+            .divider span {
+                color: rgba(0, 0, 0, 0.3);
+            }
+
+            .login-footer {
+                color: rgba(0, 0, 0, 0.2);
+            }
+
+            .login-footer a {
+                color: rgba(0, 0, 0, 0.3);
+            }
+
+            .error-message {
+                background: rgba(255, 82, 82, 0.1);
+                color: #e74c3c;
+            }
+        }
+
+        /* === REDUCED MOTION === */
+        @media (prefers-reduced-motion: reduce) {
+            .login-container {
+                animation: none;
+            }
+
+            .error-message {
+                animation: none;
+            }
+
+            .spinner {
+                animation-duration: 0s;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <!-- Header -->
+        <div class="login-header">
+            <div class="logo-icon">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQJPPtvSjk6_fnQby9h0pJi3dMLhp-x1BHV2g&s" alt="Logo PTSS" />
+            </div>
+            <h1>MYPOLY <span>Dashboard</span></h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message"></div>
+
+        <!-- Form -->
+        <form id="loginForm" autocomplete="on">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password" />
+            </div>
+
+            <button type="button" id="loginBtn" class="btn-primary">
+                <span class="spinner" id="loadingSpinner"></span>
+                Login
+            </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="divider">
+            <span>or continue with</span>
+        </div>
+
+        <!-- Google Button -->
+        <button id="googleBtn" class="btn-google">
+            <svg viewBox="0 0 48 48">
+                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
+            </svg>
+            Sign in with Google
+        </button>
+
+        <!-- Footer -->
+        <div class="login-footer">
+            &copy; 2026 <a href="#">MYPOLY Dashboard</a> &bull; All rights reserved
+        </div>
+    </div>
+
+</body>
+</html>
