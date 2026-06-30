@@ -78,12 +78,20 @@
             } catch (error) {
                 let errorMsg = 'Google login gagal.';
                 if (error.code === 'auth/popup-closed-by-user') errorMsg = 'Popup ditutup.';
+                else if (error.code === 'auth/account-exists-with-different-credential') {
+                    errorMsg = 'Email ini sudah berdaftar dengan kaedah lain. Sila login dengan password.';
+                }
                 showError(errorMsg);
             }
         }
 
+        // ===== FIX: Tiada redirect paksa =====
         onAuthStateChanged(auth, (user) => {
-            if (user) window.location.href = 'dashboard.html';
+            if (user) {
+                // Jika sudah login, redirect ke dashboard
+                window.location.href = 'dashboard.html';
+            }
+            // Jika tidak login, kekal di halaman ini (index.html)
         });
 
         loginBtn.addEventListener('click', () => {
@@ -95,6 +103,8 @@
         });
 
         googleBtn.addEventListener('click', loginWithGoogle);
+
+        console.log('✅ Login page loaded. Waiting for user input...');
     </script>
 
     <style>
